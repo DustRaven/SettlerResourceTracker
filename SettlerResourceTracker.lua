@@ -40,6 +40,7 @@ function SettlerResourceTracker:new(o)
 	o.tItems = {} -- keep track of all the list items
 	o.wndSelectedListItem = nil -- keep track of which list item is currently selected
 	o.tResources = {}
+	o.firstRun = true
 
     return o
 end
@@ -86,13 +87,18 @@ function SettlerResourceTracker:OnDocLoaded()
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 		Apollo.RegisterSlashCommand("srt", "OnSettlerResourceTrackerOn", self)
 		Apollo.RegisterSlashCommand("srtd", "RoverDebug", self)
+		Apollo.RegisterSlashCommand("srtr", "Recount", self)
 		Apollo.RegisterEventHandler("ChannelUpdate_Loot", "OnLootedItem", self)
 		Apollo.RegisterEventHandler("SubZoneChanged", "PopulateItemList", self)
+		Apollo.RegisterEventHandler("UpdateInventory", "Recount", self)
 		
 		if not self.isActive then
 			Apollo.RemoveEventHandler("ChannelUpdate_Loot", self)
 		end
 
+		if self.firstRun then
+			self:ReloadFromBags()
+		end
 		-- Do additional Addon initialization here
 	end
 end
@@ -104,6 +110,9 @@ end
 function SettlerResourceTracker:InitConfigOptions()
 	if self.isActive == nil then
 		self.isActive = true
+	end
+	if self.firstRun == nil then
+		self.firstRun = true
 	end
 end
 
@@ -119,6 +128,7 @@ function SettlerResourceTracker:OnSave(eLevel)
 	tSaveData.isActive = self.isActive
 	tSaveData.tResources = self.tResources
 	tSaveData.tLocations = self.tLocations
+	tSaveData.fisrtRun = self.firstRun
 	
 	return tSaveData
 end
@@ -139,13 +149,16 @@ function SettlerResourceTracker:OnRestore(eLevel, tData)
 	if(tData.tLocations ~= nil) then
 		self.tLocations = tData.tLocations
 	end
+	
+	if(tData.firstRun ~= nil) then
+		self.firstRun = tData.firstRun
+	end
 end
 
 -- on SlashCommand "/srt"
 function SettlerResourceTracker:OnSettlerResourceTrackerOn()
 	self.wndMain:Invoke() -- show the window
 	self:LoadPosition()
-	print("HALLOOOOO!")	
 	-- populate the item list
 	self:PopulateItemList()
 end
@@ -161,12 +174,10 @@ end
 -- populate item list
 function SettlerResourceTracker:PopulateItemList()
 	-- make sure the item list is empty to start with
-	Print("Populating List...")
 	self:DestroyItemList()
 
 	for _,item in pairs(self.tResources) do
-		if item.zone == GameLib.GetCurrentWorldId() then
-			Print("Adding " .. item.name)
+		if item.zone == GameLib.GetCurrentZoneMap().id then
 			self:AddItem(item)
 		end
 	end
@@ -178,9 +189,10 @@ end
 -- clear the item list
 function SettlerResourceTracker:DestroyItemList()
 	-- destroy all the wnd inside the list
-	for idx,wnd in ipairs(self.tItems) do
-		wnd:Destroy()
-	end
+	--for idx,wnd in ipairs(self.tItems) do
+		--wnd:Destroy()
+	--end
+	self.wndItemList:DestroyChildren()
 
 	-- clear the list item array
 	self.tItems = {}
@@ -198,8 +210,11 @@ function SettlerResourceTracker:AddItem(item)
 		end
 	end
 	
+	self.tItems[item.name] = wndEntry
+	
 	wndEntry:FindChild("Name"):SetText(item.name)
 	wndEntry:FindChild("Count"):SetText(item.count)
+	wndEntry:FindChild("Icon"):SetSprite(item.icon)
 	
 	self.wndItemList:ArrangeChildrenVert()	
 end
@@ -211,23 +226,29 @@ function SettlerResourceTracker:RemoveItem(wndControl)
 	self.wndItemList:ArrangeChildrenVert()
 end
 
+function SettlerResourceTracker:Recount()
+	self:ReloadFromBags()
+	self:PopulateItemList()
+end
 
 function SettlerResourceTracker:AddResource(tResource)
 	local resId = tResource.itemNew:GetItemId()
 	local resName = tResource.itemNew:GetName()
-	local zone = GameLib.GetCurrentWorldId()
 	local resCount = tResource.nCount
-	
-	if self.tResources[resId].count then
+	local resIcon = Item.GetIcon(resId)
+	local zone = GameLib.GetCurrentZoneMap().id
+
+	if self.tResources[resId] then
 		self.tResources[resId].count = self.tResources[resId].count + resCount
 	else
 		local tTemp = { zone = zone,
 						name = resName,
-						count = resCount }
+						count = resCount,
+						icon = resIcon }
 		self.tResources[resId] = tTemp
 	end				
 	
-	if self.tResources[resId].zone == nil then
+	if self.tResources[resId].zone == 0 then
 		self.tResources[resId].zone = zone
 	end
 	self:AddItem(self.tResources[resId])
@@ -239,10 +260,22 @@ function SettlerResourceTracker:ReloadFromBags()
 	for _, item in pairs(tTemp) do
 		local itemId = item.itemMaterial:GetItemId()
 		local itemName = item.itemMaterial:GetName()
+		local itemIcon = Item.GetIcon(itemId)
 		local itemCount = item.nCount
+		local itemZone = 0
 		
-		self.tResources[itemId] =  { name = itemName, count = itemCount }
+		if self.tResources[itemId] then
+			if self.tResources[itemId].zone ~= nil then
+				itemZone = self.tResources[itemId].zone
+			end
+		end
+		
+		self.tResources[itemId] =  { name = itemName, count = itemCount, icon = itemIcon, zone = itemZone }
 	end
+	
+	if self.firstRun then
+		self.firstRun = false
+	end	
 end
 
 -- when a list item is selected
