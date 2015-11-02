@@ -91,13 +91,14 @@ function SettlerResourceTracker:OnDocLoaded()
 		Apollo.RegisterEventHandler("ChannelUpdate_Loot", "OnLootedItem", self)
 		Apollo.RegisterEventHandler("SubZoneChanged", "PopulateItemList", self)
 		Apollo.RegisterEventHandler("UpdateInventory", "Recount", self)
+
+		if self.firstRun then
+			self.isActive = true
+			self:ReloadFromBags()
+		end
 		
 		if not self.isActive then
 			Apollo.RemoveEventHandler("ChannelUpdate_Loot", self)
-		end
-
-		if self.firstRun then
-			self:ReloadFromBags()
 		end
 		-- Do additional Addon initialization here
 	end
@@ -332,6 +333,7 @@ function SettlerResourceTracker:OnConfigure()
 	
 	self.wndConfig = Apollo.LoadForm("SettlerResourceTracker.xml", "ConfigForm", nil, self)
 	self:LoadPosition()
+	self:InitConfigOptions()
 	
 	self.wndConfig:FindChild("EnableFrame:RadioButton"):SetCheck(self.isActive)
 end
