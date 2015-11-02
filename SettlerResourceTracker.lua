@@ -40,7 +40,7 @@ function SettlerResourceTracker:new(o)
 	o.tItems = {} -- keep track of all the list items
 	o.wndSelectedListItem = nil -- keep track of which list item is currently selected
 	o.tResources = {}
-	o.firstRun = true
+	o.firstRun = true 
 
     return o
 end
@@ -77,7 +77,12 @@ function SettlerResourceTracker:OnDocLoaded()
 		
 		-- Tracked item list
 		self.wndItemList = self.wndMain:FindChild("TrackedList")
-	    self.wndMain:Show(false, true)
+		if self.showOnStart then
+			self.wndMain:Show(true, true)
+			self:PopulateItemList()
+		else
+			self.wndMain:Show(false, true)
+		end
 		self:LoadPosition()
 
 		-- if the xmlDoc is no longer needed, you should set it to nil
@@ -115,6 +120,9 @@ function SettlerResourceTracker:InitConfigOptions()
 	if self.firstRun == nil then
 		self.firstRun = true
 	end
+	if self.showOnStart == nil then
+		self.showOnStart = false
+	end
 end
 
 function SettlerResourceTracker:OnSave(eLevel)
@@ -130,6 +138,7 @@ function SettlerResourceTracker:OnSave(eLevel)
 	tSaveData.tResources = self.tResources
 	tSaveData.tLocations = self.tLocations
 	tSaveData.firstRun = self.firstRun
+	tSaveData.showOnStart = self.showOnStart
 	
 	return tSaveData
 end
@@ -153,6 +162,10 @@ function SettlerResourceTracker:OnRestore(eLevel, tData)
 	
 	if(tData.firstRun ~= nil) then
 		self.firstRun = tData.firstRun
+	end
+	
+	if(tData.showOnStart ~= nil) then
+		self.showOnStart = tData.showOnStart
 	end
 end
 
@@ -355,14 +368,22 @@ function SettlerResourceTracker:OnConfigClose()
 	self.wndConfig:Close()
 end
 
-function SettlerResourceTracker:OnIsActiveCheck(wndHandler, wndControl)
+function SettlerResourceTracker:OnIsActiveCheck()
 	self.isActive = true
 	Apollo.RegisterEventHandler("ChannelUpdate_Loot", "OnLootedItem", self)
 end
 
-function SettlerResourceTracker:OnIsActiveUncheck(wndHandler, wndControl)
+function SettlerResourceTracker:OnIsActiveUncheck()
 	self.isActive = false
 	Apollo.RemoveEventHandler("ChannelUpdate_Loot")
+end
+
+function SettlerResourceTracker:OnStartupCheck()
+	self.showOnStart = true
+end
+
+function SettlerResourceTracker:OnStartupUncheck()
+	self.showOnStart = false
 end
 
 -----------------------------------------------------------------------------------------------
