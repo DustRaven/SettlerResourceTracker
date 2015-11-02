@@ -128,7 +128,7 @@ function SettlerResourceTracker:OnSave(eLevel)
 	tSaveData.isActive = self.isActive
 	tSaveData.tResources = self.tResources
 	tSaveData.tLocations = self.tLocations
-	tSaveData.fisrtRun = self.firstRun
+	tSaveData.firstRun = self.firstRun
 	
 	return tSaveData
 end
